@@ -1,0 +1,143 @@
+G-POCKET - VERSIONE PUBBLICA (3 skin: STEEL, BLACK, WHITE) - DA DARE ALLE PERSONE
+GUIDA PASSO PASSO: GitHub -> plugin per Windows e Mac
+
+ATTENZIONE: tieni DUE repository separati. Uno per la versione pubblica e uno per la versione privata.
+Se carichi i due zip nello stesso repository, l'ultimo caricato sostituisce l'altro.
+
+======================================================================
+A) PRIMA VOLTA (repository nuovo)
+======================================================================
+1. Accedi a github.com e clicca "New" per creare un repository. Tipo: quello che preferisci (puo' essere pubblico).
+   Non aggiungere README.
+2. Decomprimi questo zip sul PC. Apri la cartella GroovyRack: dentro vedi CMakeLists.txt, Source, Resources, README.md.
+3. Nel repository: Add file -> Upload files.
+4. In Esplora file entra nella cartella GroovyRack, premi Ctrl+A e trascina TUTTO nella pagina di GitHub
+   (il CONTENUTO, non la cartella GroovyRack stessa). CMakeLists.txt e Source devono stare nella radice del repository.
+5. In fondo clicca "Commit changes" (UN SOLO commit con tutti i file).
+   Se GitHub dice che ci sono troppi file, carica prima la cartella Source, poi il resto.
+6. Il file di compilazione: la cartella nascosta .github spesso non si carica col trascinamento.
+   Add file -> Create new file. Come nome scrivi esattamente:  .github/workflows/build.yml
+   Incolla il testo del file build.yml che trovi in fondo a questa guida. Clicca "Commit changes".
+
+======================================================================
+B) AGGIORNARE UN REPOSITORY CHE HAI GIA' (il tuo caso)
+======================================================================
+1. Decomprimi questo zip.
+2. Nel repository: Add file -> Upload files.
+3. Trascina il CONTENUTO della cartella GroovyRack (Ctrl+A dentro la cartella e trascina). GitHub sostituisce
+   i file con lo stesso nome e aggiunge quelli nuovi (per esempio Source/UI/Game.h).
+4. Scrivi un messaggio qualsiasi e clicca "Commit changes". UN SOLO commit: cosi' parte una sola compilazione.
+5. Controlla il file .github/workflows/build.yml sul repository: deve essere uguale a quello in fondo a questa guida.
+   Se e' diverso, aprilo, clicca la matita, cancella tutto (Ctrl+A), incolla il testo nuovo e fai "Commit changes".
+   Se la compilazione parte due volte, la prima puo' fallire: conta solo l'ultima.
+
+======================================================================
+C) COMPILAZIONE
+======================================================================
+1. Vai nella scheda Actions: parte da sola "Build plugin" (pallino giallo = in corso).
+2. Aspetta 10-20 minuti. Segno verde = ok. Segno rosso = errore: apri il passaggio fallito, premi Ctrl+F e cerca "error:",
+   poi fai uno screenshot delle righe rosse e mandamelo.
+3. Se macOS si ferma con "job was not acquired by Runner" e' un problema dei server GitHub: "Re-run failed jobs".
+
+======================================================================
+D) SCARICARE E INSTALLARE
+======================================================================
+1. Apri l'esecuzione verde piu' recente. In fondo, nella sezione Artifacts, scarica:
+   - G-POCKET-windows-latest
+   - G-POCKET-macos-latest  (solo se ti serve il Mac)
+   Sono ZIP: decomprimili.
+2. WINDOWS: copia la cartella "G-POCKET.vst3" in
+   C:\Program Files\Common Files\VST3
+   (conferma il permesso da amministratore). Elimina le vecchie versioni (G-POCKET.vst3 precedente, Groovy Rack.vst3, POCKET-FX.vst3).
+3. MAC: copia G-POCKET.vst3 in ~/Library/Audio/Plug-Ins/VST3 e G-POCKET.component in ~/Library/Audio/Plug-Ins/Components.
+   POI apri il Terminale e incolla questa riga intera (sblocca i file scaricati; senza questo macOS dice "e' danneggiato"):
+   P=~/Library/Audio/Plug-Ins/VST3/G-POCKET.vst3; A=~/Library/Audio/Plug-Ins/Components/G-POCKET.component; for p in "$P" "$A"; do [ -e "$p" ] && { xattr -cr "$p"; chmod -R a+rX "$p"; chmod +x "$p"/Contents/MacOS/*; codesign --force --deep -s - "$p"; }; done; echo FATTO
+   Quando vedi FATTO e' finito. (Opzionale: l'artifact G-POCKET-macos-con-installer contiene G-POCKET_Mac.zip con un file
+   "Installa_G-POCKET_su_Mac.command" che fa tutto da solo: clic destro > Apri.)
+4. Apri la DAW, riscansiona i plugin se serve, cerca "G-POCKET" tra gli effetti.
+
+======================================================================
+E) COSA CONTROLLARE DOPO L'INSTALLAZIONE
+======================================================================
+- Il plugin si apre con la scocca che si apre e gli schermi spenti, poi si accendono a pixel.
+- Nella schermata PRESET (tasto SELECT): lista di 30 preset (BASIC / LIGHT / DESTROY), tasti SAVE e DEL, sezione SKIN con 3 skin.
+- Cambiando skin c'e' una breve animazione a pixel.
+- Envelope in Sync: il rate ha anche le terzine (1/8T, 1/4T...).
+- Sulla cerniera e' inciso "G-POCKET".
+- Salva un preset con SAVE, poi eliminalo con DEL (DEL chiede conferma con un secondo click).
+
+
+======================================================================
+F) CONTENUTO DEL FILE .github/workflows/build.yml
+======================================================================
+name: Build plugin
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGROOVY_LIMITED_EDITION=OFF
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Firma i plugin (Mac)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          R=build/GroovyRack_artefacts/Release
+          for b in "$R"/VST3/*.vst3 "$R"/AU/*.component; do
+            chmod -R a+rX "$b"
+            chmod +x "$b"/Contents/MacOS/*
+            codesign --force --deep -s - "$b"
+            lipo -archs "$b"/Contents/MacOS/*
+          done
+
+      - name: Upload (Mac)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-macos-latest
+          path: |
+            build/GroovyRack_artefacts/Release/VST3
+            build/GroovyRack_artefacts/Release/AU
+            build/GroovyRack_artefacts/Release/Standalone
+
+      - name: Pacchetto Mac con installer (bonus)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          R=build/GroovyRack_artefacts/Release
+          mkdir -p dist/G-POCKET_Mac
+          cp -R "$R"/VST3/*.vst3 "$R"/AU/*.component dist/G-POCKET_Mac/
+          cp mac/Installa_G-POCKET_su_Mac.command dist/G-POCKET_Mac/
+          chmod +x dist/G-POCKET_Mac/*.command
+          cd dist && ditto -c -k --keepParent G-POCKET_Mac G-POCKET_Mac.zip
+
+      - name: Upload (Mac con installer)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-macos-con-installer
+          path: dist/G-POCKET_Mac.zip
+
+      - name: Upload (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-windows-latest
+          path: |
+            build/GroovyRack_artefacts/Release/VST3
+            build/GroovyRack_artefacts/Release/Standalone
