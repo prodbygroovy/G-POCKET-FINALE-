@@ -1,0 +1,71 @@
+name: Build plugin
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGROOVY_LIMITED_EDITION=OFF
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Firma i plugin (Mac)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          R=build/GroovyRack_artefacts/Release
+          for b in "$R"/VST3/*.vst3 "$R"/AU/*.component; do
+            chmod -R a+rX "$b"
+            chmod +x "$b"/Contents/MacOS/*
+            codesign --force --deep -s - "$b"
+            lipo -archs "$b"/Contents/MacOS/*
+          done
+
+      - name: Upload (Mac)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-macos-latest
+          path: |
+            build/GroovyRack_artefacts/Release/VST3
+            build/GroovyRack_artefacts/Release/AU
+            build/GroovyRack_artefacts/Release/Standalone
+
+      - name: Pacchetto Mac con installer (bonus)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          R=build/GroovyRack_artefacts/Release
+          mkdir -p dist/G-POCKET_Mac
+          cp -R "$R"/VST3/*.vst3 "$R"/AU/*.component dist/G-POCKET_Mac/
+          cp mac/Installa_G-POCKET_su_Mac.command dist/G-POCKET_Mac/
+          chmod +x dist/G-POCKET_Mac/*.command
+          cd dist && ditto -c -k --keepParent G-POCKET_Mac G-POCKET_Mac.zip
+
+      - name: Upload (Mac con installer)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-macos-con-installer
+          path: dist/G-POCKET_Mac.zip
+
+      - name: Upload (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-windows-latest
+          path: |
+            build/GroovyRack_artefacts/Release/VST3
+            build/GroovyRack_artefacts/Release/Standalone
