@@ -1,4 +1,4 @@
-name: Build plugin
+name: Build G-POCKET
 
 on:
   push:
@@ -9,13 +9,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGROOVY_LIMITED_EDITION=OFF
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -24,48 +24,42 @@ jobs:
         if: runner.os == 'macOS'
         continue-on-error: true
         run: |
-          R=build/GroovyRack_artefacts/Release
-          for b in "$R"/VST3/*.vst3 "$R"/AU/*.component; do
-            chmod -R a+rX "$b"
-            chmod +x "$b"/Contents/MacOS/*
-            codesign --force --deep -s - "$b"
-            lipo -archs "$b"/Contents/MacOS/*
+          for p in build/*_artefacts/Release/VST3/G-POCKET.vst3 build/*_artefacts/Release/AU/G-POCKET.component build/*_artefacts/Release/Standalone/G-POCKET.app; do
+            if [ -e "$p" ]; then
+              chmod -R a+rX "$p"
+              chmod +x "$p"/Contents/MacOS/*
+              codesign --force --deep -s - "$p"
+            fi
           done
 
-      - name: Upload (Mac)
+      - name: Crea installer Mac (.pkg)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x mac/pkg/make_pkg.sh mac/pkg/scripts/postinstall
+          mac/pkg/make_pkg.sh build "G-POCKET_Installer_Mac.pkg" "1.0"
+
+      - name: Upload installer Mac
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: G-POCKET-installer-mac
+          path: G-POCKET_Installer_Mac.pkg
+
+      - name: Upload Mac
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: G-POCKET-macos-latest
           path: |
-            build/GroovyRack_artefacts/Release/VST3
-            build/GroovyRack_artefacts/Release/AU
-            build/GroovyRack_artefacts/Release/Standalone
+            build/*_artefacts/Release/VST3
+            build/*_artefacts/Release/AU
+            build/*_artefacts/Release/Standalone
 
-      - name: Pacchetto Mac con installer (bonus)
-        if: runner.os == 'macOS'
-        continue-on-error: true
-        run: |
-          R=build/GroovyRack_artefacts/Release
-          mkdir -p dist/G-POCKET_Mac
-          cp -R "$R"/VST3/*.vst3 "$R"/AU/*.component dist/G-POCKET_Mac/
-          cp mac/Installa_G-POCKET_su_Mac.command dist/G-POCKET_Mac/
-          chmod +x dist/G-POCKET_Mac/*.command
-          cd dist && ditto -c -k --keepParent G-POCKET_Mac G-POCKET_Mac.zip
-
-      - name: Upload (Mac con installer)
-        if: runner.os == 'macOS'
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: G-POCKET-macos-con-installer
-          path: dist/G-POCKET_Mac.zip
-
-      - name: Upload (Windows)
+      - name: Upload Windows
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: G-POCKET-windows-latest
+          name: G-POCKET-windows
           path: |
-            build/GroovyRack_artefacts/Release/VST3
-            build/GroovyRack_artefacts/Release/Standalone
+            build/*_artefacts/Release/VST3
+            build/*_artefacts/Release/Standalone
