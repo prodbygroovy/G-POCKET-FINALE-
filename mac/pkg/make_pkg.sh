@@ -42,17 +42,27 @@ find "$ROOT" -path '*/Contents/MacOS/*' -type f -exec chmod +x {} \; || true
 
 # i bundle NON devono essere "relocatable", altrimenti l'installer puo' scrivere altrove
 pkgbuild --analyze --root "$ROOT" "$STAGE/components.plist"
-N="$(/usr/libexec/PlistBuddy -c 'Print' "$STAGE/components.plist" | grep -c 'BundleIsRelocatable' || true)"
-i=0
-while [ "$i" -lt "$N" ]; do
-  /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" "$STAGE/components.plist"
-  /usr/libexec/PlistBuddy -c "Set :$i:BundleIsVersionChecked false" "$STAGE/components.plist"
-  /usr/libexec/PlistBuddy -c "Set :$i:BundleOverwriteAction overwrite" "$STAGE/components.plist"
-  i=$((i+1))
-done
+CPLIST=""
+if python3 - "$STAGE/components.plist" <<'PY'
+import plistlib, sys
+p = sys.argv[1]
+with open(p, "rb") as f:
+    d = plistlib.load(f)
+items = d if isinstance(d, list) else [d]
+for it in items:
+    it["BundleIsRelocatable"] = False
+    it["BundleIsVersionChecked"] = False
+    it["BundleOverwriteAction"] = "overwrite"
+with open(p, "wb") as f:
+    plistlib.dump(d, f)
+sys.exit(0 if items else 1)
+PY
+then
+  CPLIST="--component-plist $STAGE/components.plist"
+fi
 
 pkgbuild --root "$ROOT" \
-         --component-plist "$STAGE/components.plist" \
+         $CPLIST \
          --scripts "$HERE/scripts" \
          --identifier com.groovy.gpocket \
          --version "$VER" \
