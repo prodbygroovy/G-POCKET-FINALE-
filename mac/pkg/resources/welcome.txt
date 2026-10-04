@@ -1,0 +1,19 @@
+G-POCKET  -  by Groovy (@prodby_groovy)
+
+Questo installer mette G-POCKET nelle cartelle giuste del tuo Mac:
+ - VST3  ->  /Library/Audio/Plug-Ins/VST3
+ - AU    ->  /Library/Audio/Plug-Ins/Components
+ - Standalone (app)  ->  /Applications
+
+Chiudi la tua DAW prima di procedere. Alla fine riaprila e fai una nuova
+scansione dei plugin.
+
+----------------------------------------------------------
+
+This installer puts G-POCKET in the right folders on your Mac:
+ - VST3  ->  /Library/Audio/Plug-Ins/VST3
+ - AU    ->  /Library/Audio/Plug-Ins/Components
+ - Standalone (app)  ->  /Applications
+
+Close your DAW before you continue. When it is done, reopen it and rescan
+your plugins.

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Eseguito dall'installer (come amministratore) dopo la copia dei file.
+for P in "/Library/Audio/Plug-Ins/VST3/G-POCKET.vst3" \
+         "/Library/Audio/Plug-Ins/Components/G-POCKET.component" \
+         "/Applications/G-POCKET.app"; do
+  if [ -e "$P" ]; then
+    xattr -cr "$P" 2>/dev/null
+    chmod -R a+rX "$P" 2>/dev/null
+  fi
+done
+# fa rileggere i plugin AU al sistema
+killall -9 AudioComponentRegistrar 2>/dev/null
+exit 0
